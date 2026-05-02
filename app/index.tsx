@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { StyleSheet, View, Button, Text, SafeAreaView } from 'react-native';
+import { StyleSheet, View, Button, Text, SafeAreaView, Platform } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
-import { Reader, ReaderProvider } from '@epubjs-react-native/core';
-import { useFileSystem } from '@epubjs-react-native/expo-file-system';
+import * as FileSystem from 'expo-file-system';
+import Reader from '../components/Reader';
 
 export default function Index() {
-  const [epubUri, setEpubUri] = useState<string | null>(null);
+  const [epubData, setEpubData] = useState<string | ArrayBuffer | null>(null);
 
   const pickDocument = async () => {
     try {
@@ -15,28 +15,27 @@ export default function Index() {
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        console.log('Picked EPUB:', result.assets[0].uri);
-        setEpubUri(result.assets[0].uri);
+        const uri = result.assets[0].uri;
+        console.log('Picked EPUB:', uri);
+        
+        if (Platform.OS === 'web') {
+          const response = await fetch(uri);
+          const arrayBuffer = await response.arrayBuffer();
+          setEpubData(arrayBuffer);
+        } else {
+          const base64 = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' });
+          setEpubData(base64);
+        }
       }
     } catch (err) {
       console.error('Error picking document:', err);
     }
   };
 
-  if (epubUri) {
+  if (epubData) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <Button title="Back" onPress={() => setEpubUri(null)} />
-          <Text style={styles.headerTitle} numberOfLines={1}>Reader</Text>
-        </View>
-        <ReaderProvider>
-          <Reader
-            src={epubUri}
-            fileSystem={useFileSystem}
-            onDisplayError={(error) => console.error('Display error:', error)}
-          />
-        </ReaderProvider>
+        <Reader src={epubData} onClose={() => setEpubData(null)} />
       </SafeAreaView>
     );
   }

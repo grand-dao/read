@@ -1,16 +1,21 @@
-import React, { useRef } from 'react';
-import { View, StyleSheet, Button, Platform } from 'react-native';
+import React, { useRef, useImperativeHandle, forwardRef } from 'react';
+import { View, StyleSheet } from 'react-native';
 import { WebView } from 'react-native-webview';
+import { Colors } from '../../constants/Colors';
 
 export interface ReaderProps {
   src: string | ArrayBuffer;
-  onClose: () => void;
+  onClose?: () => void;
 }
 
-export default function Reader({ src, onClose }: ReaderProps) {
+export interface ReaderRef {
+  goNext: () => void;
+  goPrev: () => void;
+}
+
+const Reader = forwardRef<ReaderRef, ReaderProps>(({ src }, ref) => {
   const webviewRef = useRef<WebView>(null);
 
-  // We expect `src` to be a base64 string on Native
   const base64Book = typeof src === 'string' ? src : '';
 
   const htmlContent = `
@@ -21,7 +26,7 @@ export default function Reader({ src, onClose }: ReaderProps) {
         <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.1.5/jszip.min.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/epubjs/dist/epub.min.js"></script>
         <style>
-          body { margin: 0; padding: 0; height: 100vh; background-color: #fff; }
+          body { margin: 0; padding: 0; height: 100vh; background-color: ${Colors.dark.background}; color: ${Colors.dark.text}; }
           #viewer { width: 100vw; height: 100vh; overflow: hidden; }
         </style>
       </head>
@@ -32,7 +37,6 @@ export default function Reader({ src, onClose }: ReaderProps) {
           let rendition;
 
           window.onload = function() {
-            // Read base64 data
             const base64Data = "${base64Book}";
             
             book = ePub(base64Data, { encoding: "base64" });
@@ -41,6 +45,12 @@ export default function Reader({ src, onClose }: ReaderProps) {
               height: "100%",
               manager: "continuous",
               flow: "paginated"
+            });
+
+            rendition.themes.default({
+              body: { background: "${Colors.dark.background}", color: "${Colors.dark.text}" },
+              a: { color: "${Colors.dark.primary}" },
+              '::selection': { background: "${Colors.dark.highlight}" }
             });
 
             rendition.display();
@@ -69,45 +79,37 @@ export default function Reader({ src, onClose }: ReaderProps) {
     `);
   };
 
+  useImperativeHandle(ref, () => ({
+    goNext: () => executeJS('goNext()'),
+    goPrev: () => executeJS('goPrev()'),
+  }));
+
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Button title="Close" onPress={onClose} />
-        <Button title="Prev" onPress={() => executeJS('goPrev()')} />
-        <Button title="Next" onPress={() => executeJS('goNext()')} />
-      </View>
       <View style={styles.viewerContainer}>
         <WebView
           ref={webviewRef}
           source={{ html: htmlContent }}
           originWhitelist={['*']}
           javaScriptEnabled={true}
-          style={{ flex: 1 }}
+          style={{ flex: 1, backgroundColor: Colors.dark.background }}
         />
       </View>
     </View>
   );
-}
+});
+
+Reader.displayName = 'Reader';
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 10,
-    backgroundColor: '#f9f9f9',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-    // ensure it displays above webview
-    zIndex: 10,
-    marginTop: Platform.OS === 'ios' ? 40 : 20,
+    backgroundColor: Colors.dark.background,
   },
   viewerContainer: {
     flex: 1,
     width: '100%',
   },
 });
+
+export default Reader;

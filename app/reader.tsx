@@ -16,6 +16,11 @@ export default function ReaderScreen() {
   const [showToc, setShowToc] = useState(true); // Default to showing chapters first
   const [showSettings, setShowSettings] = useState(false);
 
+  // Settings State
+  const [theme, setTheme] = useState<'dark' | 'light' | 'sepia'>('dark');
+  const [fontSize, setFontSize] = useState<number>(100);
+  const [fontFamily, setFontFamily] = useState<'sans-serif' | 'serif'>('sans-serif');
+
   useEffect(() => {
     async function loadEpub() {
       if (!uri) return;
@@ -95,13 +100,20 @@ export default function ReaderScreen() {
             )}
             {/* Hidden reader to parse TOC without showing it */}
             <View style={{ width: 0, height: 0, opacity: 0 }}>
-              <Reader src={epubData} onToc={setToc} />
+              <Reader src={epubData} onToc={setToc} theme={theme} fontSize={fontSize} fontFamily={fontFamily} />
             </View>
           </ScrollView>
         ) : (
           <View style={styles.readerContainer}>
             {/* Active reader */}
-            <Reader ref={readerRef} src={epubData} onToc={setToc} />
+            <Reader 
+              ref={readerRef} 
+              src={epubData} 
+              onToc={setToc} 
+              theme={theme} 
+              fontSize={fontSize} 
+              fontFamily={fontFamily} 
+            />
           </View>
         )}
       </View>
@@ -123,14 +135,23 @@ export default function ReaderScreen() {
               <View style={styles.settingRow}>
                 <Text style={styles.settingLabel}>Theme</Text>
                 <View style={styles.buttonGroup}>
-                  <TouchableOpacity style={[styles.settingOption, styles.activeOption]}>
-                    <Text style={styles.activeOptionText}>Dark</Text>
+                  <TouchableOpacity 
+                    style={[styles.settingOption, theme === 'dark' && styles.activeOption]}
+                    onPress={() => setTheme('dark')}
+                  >
+                    <Text style={theme === 'dark' ? styles.activeOptionText : styles.optionText}>Dark</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.settingOption}>
-                    <Text style={styles.optionText}>Light</Text>
+                  <TouchableOpacity 
+                    style={[styles.settingOption, theme === 'light' && styles.activeOption]}
+                    onPress={() => setTheme('light')}
+                  >
+                    <Text style={theme === 'light' ? styles.activeOptionText : styles.optionText}>Light</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.settingOption}>
-                    <Text style={styles.optionText}>Sepia</Text>
+                  <TouchableOpacity 
+                    style={[styles.settingOption, theme === 'sepia' && styles.activeOption]}
+                    onPress={() => setTheme('sepia')}
+                  >
+                    <Text style={theme === 'sepia' ? styles.activeOptionText : styles.optionText}>Sepia</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -138,20 +159,30 @@ export default function ReaderScreen() {
               <View style={styles.settingRow}>
                 <Text style={styles.settingLabel}>Font Size</Text>
                 <View style={styles.buttonGroup}>
-                  <TouchableOpacity style={styles.settingOption}><Text style={styles.optionText}>A-</Text></TouchableOpacity>
-                  <Text style={[styles.optionText, { marginHorizontal: 16 }]}>100%</Text>
-                  <TouchableOpacity style={styles.settingOption}><Text style={styles.optionText}>A+</Text></TouchableOpacity>
+                  <TouchableOpacity style={styles.settingOption} onPress={() => setFontSize(Math.max(50, fontSize - 10))}>
+                    <Text style={styles.optionText}>A-</Text>
+                  </TouchableOpacity>
+                  <Text style={[styles.optionText, { marginHorizontal: 16 }]}>{fontSize}%</Text>
+                  <TouchableOpacity style={styles.settingOption} onPress={() => setFontSize(Math.min(300, fontSize + 10))}>
+                    <Text style={styles.optionText}>A+</Text>
+                  </TouchableOpacity>
                 </View>
               </View>
 
               <View style={styles.settingRow}>
                 <Text style={styles.settingLabel}>Font Family</Text>
                 <View style={styles.buttonGroup}>
-                  <TouchableOpacity style={[styles.settingOption, styles.activeOption]}>
-                    <Text style={styles.activeOptionText}>Sans</Text>
+                  <TouchableOpacity 
+                    style={[styles.settingOption, fontFamily === 'sans-serif' && styles.activeOption]}
+                    onPress={() => setFontFamily('sans-serif')}
+                  >
+                    <Text style={fontFamily === 'sans-serif' ? styles.activeOptionText : styles.optionText}>Sans</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.settingOption}>
-                    <Text style={styles.optionText}>Serif</Text>
+                  <TouchableOpacity 
+                    style={[styles.settingOption, fontFamily === 'serif' && styles.activeOption]}
+                    onPress={() => setFontFamily('serif')}
+                  >
+                    <Text style={fontFamily === 'serif' ? styles.activeOptionText : styles.optionText}>Serif</Text>
                   </TouchableOpacity>
                 </View>
               </View>

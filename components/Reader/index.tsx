@@ -7,6 +7,9 @@ export interface ReaderProps {
   src: string | ArrayBuffer;
   onClose?: () => void;
   onToc?: (toc: any[]) => void;
+  theme?: 'dark' | 'light' | 'sepia';
+  fontSize?: number;
+  fontFamily?: 'sans-serif' | 'serif';
 }
 
 export interface ReaderRef {
@@ -15,7 +18,7 @@ export interface ReaderRef {
   goTo: (href: string) => void;
 }
 
-const Reader = forwardRef<ReaderRef, ReaderProps>(({ src, onToc }, ref) => {
+const Reader = forwardRef<ReaderRef, ReaderProps>(({ src, onToc, theme = 'dark', fontSize = 100, fontFamily = 'sans-serif' }, ref) => {
   const webviewRef = useRef<WebView>(null);
 
   const base64Book = typeof src === 'string' ? src : '';
@@ -28,7 +31,7 @@ const Reader = forwardRef<ReaderRef, ReaderProps>(({ src, onToc }, ref) => {
         <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.1.5/jszip.min.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/epubjs/dist/epub.min.js"></script>
         <style>
-          body { margin: 0; padding: 0; height: 100vh; background-color: ${Colors.dark.background}; color: ${Colors.dark.text}; }
+          body { margin: 0; padding: 0; height: 100vh; background-color: transparent; }
           #viewer { width: 100vw; height: 100vh; overflow: hidden; }
         </style>
       </head>
@@ -58,11 +61,27 @@ const Reader = forwardRef<ReaderRef, ReaderProps>(({ src, onToc }, ref) => {
               flow: "scrolled"
             });
 
-            rendition.themes.default({
+            // Register Themes
+            rendition.themes.register("dark", {
               body: { background: "${Colors.dark.background}", color: "${Colors.dark.text}", paddingBottom: "100px" },
               a: { color: "${Colors.dark.primary}" },
               '::selection': { background: "${Colors.dark.highlight}" }
             });
+            rendition.themes.register("light", {
+              body: { background: "#FFFFFF", color: "#111111", paddingBottom: "100px" },
+              a: { color: "${Colors.dark.primary}" },
+              '::selection': { background: "#D1D5DB" }
+            });
+            rendition.themes.register("sepia", {
+              body: { background: "#F4ECD8", color: "#5B4636", paddingBottom: "100px" },
+              a: { color: "${Colors.dark.primary}" },
+              '::selection': { background: "#D4C4A8" }
+            });
+
+            // Set Initial Settings
+            rendition.themes.select("${theme}");
+            rendition.themes.fontSize("${fontSize}%");
+            rendition.themes.font("${fontFamily}");
             
             // Inject Next/Prev buttons at the bottom of each chapter
             rendition.hooks.content.register(function(contents) {
@@ -115,6 +134,18 @@ const Reader = forwardRef<ReaderRef, ReaderProps>(({ src, onToc }, ref) => {
       true;
     `);
   };
+
+  React.useEffect(() => {
+    executeJS(`if (typeof rendition !== 'undefined') rendition.themes.select('${theme}');`);
+  }, [theme]);
+
+  React.useEffect(() => {
+    executeJS(`if (typeof rendition !== 'undefined') rendition.themes.fontSize('${fontSize}%');`);
+  }, [fontSize]);
+
+  React.useEffect(() => {
+    executeJS(`if (typeof rendition !== 'undefined') rendition.themes.font('${fontFamily}');`);
+  }, [fontFamily]);
 
   useImperativeHandle(ref, () => ({
     goNext: () => executeJS('goNext()'),

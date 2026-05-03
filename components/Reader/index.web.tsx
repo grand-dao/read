@@ -7,6 +7,9 @@ export interface ReaderProps {
   src: string | ArrayBuffer;
   onClose?: () => void;
   onToc?: (toc: any[]) => void;
+  theme?: 'dark' | 'light' | 'sepia';
+  fontSize?: number;
+  fontFamily?: 'sans-serif' | 'serif';
 }
 
 export interface ReaderRef {
@@ -15,7 +18,7 @@ export interface ReaderRef {
   goTo: (href: string) => void;
 }
 
-const Reader = forwardRef<ReaderRef, ReaderProps & { onToc?: (toc: any) => void }>(({ src, onToc }, ref) => {
+const Reader = forwardRef<ReaderRef, ReaderProps>(({ src, onToc, theme = 'dark', fontSize = 100, fontFamily = 'sans-serif' }, ref) => {
   const viewerRef = useRef<HTMLDivElement>(null);
   const [rendition, setRendition] = useState<any>(null);
 
@@ -38,12 +41,27 @@ const Reader = forwardRef<ReaderRef, ReaderProps & { onToc?: (toc: any) => void 
       manager: 'default',
     });
     
-    // Set theme styling for epubjs iframe
-    newRendition.themes.default({
+    // Register Themes
+    newRendition.themes.register("dark", {
       body: { background: Colors.dark.background, color: Colors.dark.text, paddingBottom: "100px" },
       a: { color: Colors.dark.primary },
       '::selection': { background: Colors.dark.highlight }
     });
+    newRendition.themes.register("light", {
+      body: { background: "#FFFFFF", color: "#111111", paddingBottom: "100px" },
+      a: { color: Colors.dark.primary },
+      '::selection': { background: "#D1D5DB" }
+    });
+    newRendition.themes.register("sepia", {
+      body: { background: "#F4ECD8", color: "#5B4636", paddingBottom: "100px" },
+      a: { color: Colors.dark.primary },
+      '::selection': { background: "#D4C4A8" }
+    });
+
+    // Set Initial Settings
+    newRendition.themes.select(theme);
+    newRendition.themes.fontSize(`${fontSize}%`);
+    newRendition.themes.font(fontFamily);
 
     // Expose methods to window for the injected buttons to call
     (window as any).goWebPrev = () => newRendition.prev();
@@ -82,7 +100,19 @@ const Reader = forwardRef<ReaderRef, ReaderProps & { onToc?: (toc: any) => void 
       delete (window as any).goWebPrev;
       delete (window as any).goWebNext;
     };
-  }, [src, onToc]);
+  }, [src, onToc]); // Intentionally not including theme/fontSize/fontFamily to avoid full reload
+
+  useEffect(() => {
+    if (rendition && theme) rendition.themes.select(theme);
+  }, [theme, rendition]);
+
+  useEffect(() => {
+    if (rendition && fontSize) rendition.themes.fontSize(`${fontSize}%`);
+  }, [fontSize, rendition]);
+
+  useEffect(() => {
+    if (rendition && fontFamily) rendition.themes.font(fontFamily);
+  }, [fontFamily, rendition]);
 
   useImperativeHandle(ref, () => ({
     goNext: () => rendition?.next(),

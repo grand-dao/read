@@ -6,14 +6,16 @@ import { Colors } from '../../constants/Colors';
 export interface ReaderProps {
   src: string | ArrayBuffer;
   onClose?: () => void;
+  onToc?: (toc: any[]) => void;
 }
 
 export interface ReaderRef {
   goNext: () => void;
   goPrev: () => void;
+  goTo: (href: string) => void;
 }
 
-const Reader = forwardRef<ReaderRef, ReaderProps>(({ src }, ref) => {
+const Reader = forwardRef<ReaderRef, ReaderProps>(({ src, onToc }, ref) => {
   const webviewRef = useRef<WebView>(null);
 
   const base64Book = typeof src === 'string' ? src : '';
@@ -40,17 +42,35 @@ const Reader = forwardRef<ReaderRef, ReaderProps>(({ src }, ref) => {
             const base64Data = "${base64Book}";
             
             book = ePub(base64Data, { encoding: "base64" });
+            
+            // Extract TOC
+            book.loaded.navigation.then(function(nav) {
+              window.ReactNativeWebView.postMessage(JSON.stringify({
+                type: 'toc',
+                toc: nav.toc
+              }));
+            });
+
             rendition = book.renderTo("viewer", {
               width: "100%",
               height: "100%",
-              manager: "continuous",
-              flow: "paginated"
+              manager: "default",
+              flow: "scrolled"
             });
 
             rendition.themes.default({
-              body: { background: "${Colors.dark.background}", color: "${Colors.dark.text}" },
+              body: { background: "${Colors.dark.background}", color: "${Colors.dark.text}", paddingBottom: "100px" },
               a: { color: "${Colors.dark.primary}" },
               '::selection': { background: "${Colors.dark.highlight}" }
+            });
+            
+            // Inject Next/Prev buttons at the bottom of each chapter
+            rendition.hooks.content.register(function(contents) {
+              const doc = contents.document;
+              const body = doc.body;
+              const footer = doc.createElement('div');
+              footer.innerHTML = '<div style="display:flex; justify-content:space-between; padding: 40px 20px; margin-top: 40px; border-top: 1px solid #333;"><button onclick="window.ReactNativeWebView.postMessage(JSON.stringify({type: \\'prev\\'}))" style="padding:12px 24px; background:#9333EA; color:#fff; border:none; border-radius:8px; font-size:16px;">&larr; Prev Chapter</button><button onclick="window.ReactNativeWebView.postMessage(JSON.stringify({type: \\'next\\'}))" style="padding:12px 24px; background:#9333EA; color:#fff; border:none; border-radius:8px; font-size:16px;">Next Chapter &rarr;</button></div>';
+              body.appendChild(footer);
             });
 
             rendition.display();
@@ -65,6 +85,7 @@ const Reader = forwardRef<ReaderRef, ReaderProps>(({ src }, ref) => {
 
           function goNext() { rendition.next(); }
           function goPrev() { rendition.prev(); }
+          function goTo(href) { rendition.display(href); }
         </script>
       </body>
     </html>
@@ -82,7 +103,23 @@ const Reader = forwardRef<ReaderRef, ReaderProps>(({ src }, ref) => {
   useImperativeHandle(ref, () => ({
     goNext: () => executeJS('goNext()'),
     goPrev: () => executeJS('goPrev()'),
+    goTo: (href: string) => executeJS(`goTo('${href}')`),
   }));
+  
+  const handleMessage = (event: any) => {
+    try {
+      const data = JSON.parse(event.nativeEvent.data);
+      if (data.type === 'toc' && onToc) {
+        onToc(data.toc);
+      } else if (data.type === 'next') {
+        executeJS('goNext()');
+      } else if (data.type === 'prev') {
+        executeJS('goPrev()');
+      }
+    } catch (e) {
+      console.error('Error parsing message from webview', e);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -92,6 +129,7 @@ const Reader = forwardRef<ReaderRef, ReaderProps>(({ src }, ref) => {
           source={{ html: htmlContent }}
           originWhitelist={['*']}
           javaScriptEnabled={true}
+          onMessage={handleMessage}
           style={{ flex: 1, backgroundColor: Colors.dark.background }}
         />
       </View>

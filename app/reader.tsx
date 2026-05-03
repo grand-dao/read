@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, Platform, SafeAreaView } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, Platform, SafeAreaView, ScrollView, Modal, Switch } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as FileSystem from 'expo-file-system';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import Reader, { ReaderRef } from '../components/Reader';
 import { Colors } from '../constants/Colors';
 
@@ -10,8 +10,11 @@ export default function ReaderScreen() {
   const { uri } = useLocalSearchParams<{ uri: string }>();
   const router = useRouter();
   const readerRef = useRef<ReaderRef>(null);
+  
   const [epubData, setEpubData] = useState<string | ArrayBuffer | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [toc, setToc] = useState<any[]>([]);
+  const [showToc, setShowToc] = useState(true); // Default to showing chapters first
+  const [showSettings, setShowSettings] = useState(false);
 
   useEffect(() => {
     async function loadEpub() {
@@ -32,6 +35,22 @@ export default function ReaderScreen() {
     loadEpub();
   }, [uri]);
 
+  const handleBack = () => {
+    if (!showToc) {
+      setShowToc(true); // Go back to Chapters list
+    } else {
+      router.back(); // Go back to Library
+    }
+  };
+
+  const handleChapterClick = (href: string) => {
+    setShowToc(false);
+    // Give the view a moment to switch before telling epubjs to navigate
+    setTimeout(() => {
+      readerRef.current?.goTo(href);
+    }, 100);
+  };
+
   if (!epubData) {
     return (
       <View style={styles.loadingContainer}>
@@ -45,81 +64,113 @@ export default function ReaderScreen() {
       {/* Top Navigation Bar */}
       <View style={styles.topBar}>
         <View style={styles.topBarLeft}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.iconButton}>
+          <TouchableOpacity onPress={handleBack} style={styles.iconButton}>
             <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.iconButton, styles.activeIconBg]}>
-            <Ionicons name="megaphone" size={20} color={Colors.dark.background} />
-          </TouchableOpacity>
+          <Text style={styles.headerTitle}>{showToc ? 'Chapters' : 'Reader'}</Text>
         </View>
-
         <View style={styles.topBarRight}>
-          <TouchableOpacity style={styles.iconButton}>
-            <Ionicons name="search" size={24} color={Colors.dark.icon} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.iconButton}>
-            <Ionicons name="bookmark-outline" size={24} color={Colors.dark.icon} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.iconButton}>
-            <MaterialCommunityIcons name="format-font-size-decrease" size={24} color={Colors.dark.icon} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.iconButton}>
-            <MaterialCommunityIcons name="translate" size={24} color={Colors.dark.icon} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.iconButton}>
+          <TouchableOpacity onPress={() => setShowSettings(true)} style={styles.iconButton}>
             <Ionicons name="settings-outline" size={24} color={Colors.dark.icon} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.iconButton}>
-            <Ionicons name="ellipsis-vertical" size={24} color={Colors.dark.icon} />
-          </TouchableOpacity>
         </View>
       </View>
 
-      {/* Main Reader View */}
-      <View style={styles.readerContainer}>
-        <Reader ref={readerRef} src={epubData} />
-      </View>
-
-      {/* Bottom Control Bar */}
-      <View style={styles.bottomBar}>
-        <View style={styles.progressContainer}>
-          <Text style={styles.progressText}>
-            The Book (0%) - Part 1 of X (0%)
-          </Text>
-        </View>
-
-        <View style={styles.controlsContainer}>
-          <TouchableOpacity style={styles.controlButton}>
-            <MaterialCommunityIcons name="voice-off" size={28} color={Colors.dark.primary} />
-          </TouchableOpacity>
-          
-          <View style={styles.playbackControls}>
-            <TouchableOpacity style={styles.controlButton} onPress={() => readerRef.current?.goPrev()}>
-              <Ionicons name="play-skip-back" size={32} color={Colors.dark.icon} />
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={styles.playButton} 
-              onPress={() => setIsPlaying(!isPlaying)}
-            >
-              <Ionicons 
-                name={isPlaying ? "pause" : "play"} 
-                size={36} 
-                color="#fff" 
-                style={{ marginLeft: isPlaying ? 0 : 4 }} 
-              />
-            </TouchableOpacity>
-            
-            <TouchableOpacity style={styles.controlButton} onPress={() => readerRef.current?.goNext()}>
-              <Ionicons name="play-skip-forward" size={32} color={Colors.dark.icon} />
-            </TouchableOpacity>
+      {/* Main Content Area */}
+      <View style={styles.mainContainer}>
+        {showToc ? (
+          <ScrollView style={styles.tocContainer}>
+            {toc.length === 0 ? (
+              <Text style={styles.tocLoadingText}>Loading Chapters...</Text>
+            ) : (
+              toc.map((chapter: any, index: number) => (
+                <TouchableOpacity 
+                  key={index} 
+                  style={styles.tocItem}
+                  onPress={() => handleChapterClick(chapter.href)}
+                >
+                  <Text style={styles.tocItemText}>{chapter.label.trim()}</Text>
+                </TouchableOpacity>
+              ))
+            )}
+            {/* Hidden reader to parse TOC without showing it */}
+            <View style={{ width: 0, height: 0, opacity: 0 }}>
+              <Reader src={epubData} onToc={setToc} />
+            </View>
+          </ScrollView>
+        ) : (
+          <View style={styles.readerContainer}>
+            {/* Active reader */}
+            <Reader ref={readerRef} src={epubData} onToc={setToc} />
           </View>
-          
-          <TouchableOpacity style={styles.controlButton}>
-            <Ionicons name="caret-up-outline" size={28} color={Colors.dark.icon} />
-          </TouchableOpacity>
-        </View>
+        )}
       </View>
+
+      {/* Settings Modal */}
+      <Modal visible={showSettings} animationType="slide" transparent={true}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Settings</Text>
+              <TouchableOpacity onPress={() => setShowSettings(false)}>
+                <Ionicons name="close" size={24} color={Colors.dark.text} />
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView style={styles.modalBody}>
+              <Text style={styles.sectionTitle}>Look Customization</Text>
+              
+              <View style={styles.settingRow}>
+                <Text style={styles.settingLabel}>Theme</Text>
+                <View style={styles.buttonGroup}>
+                  <TouchableOpacity style={[styles.settingOption, styles.activeOption]}>
+                    <Text style={styles.activeOptionText}>Dark</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.settingOption}>
+                    <Text style={styles.optionText}>Light</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.settingOption}>
+                    <Text style={styles.optionText}>Sepia</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              <View style={styles.settingRow}>
+                <Text style={styles.settingLabel}>Font Size</Text>
+                <View style={styles.buttonGroup}>
+                  <TouchableOpacity style={styles.settingOption}><Text style={styles.optionText}>A-</Text></TouchableOpacity>
+                  <Text style={[styles.optionText, { marginHorizontal: 16 }]}>100%</Text>
+                  <TouchableOpacity style={styles.settingOption}><Text style={styles.optionText}>A+</Text></TouchableOpacity>
+                </View>
+              </View>
+
+              <View style={styles.settingRow}>
+                <Text style={styles.settingLabel}>Font Family</Text>
+                <View style={styles.buttonGroup}>
+                  <TouchableOpacity style={[styles.settingOption, styles.activeOption]}>
+                    <Text style={styles.activeOptionText}>Sans</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.settingOption}>
+                    <Text style={styles.optionText}>Serif</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Other Settings (Demos)</Text>
+              
+              <View style={styles.settingRow}>
+                <Text style={styles.settingLabel}>Auto-scroll</Text>
+                <Switch value={false} onValueChange={() => {}} />
+              </View>
+              <View style={styles.settingRow}>
+                <Text style={styles.settingLabel}>Text-to-Speech</Text>
+                <Switch value={false} onValueChange={() => {}} />
+              </View>
+
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -157,56 +208,102 @@ const styles = StyleSheet.create({
     padding: 8,
     marginHorizontal: 2,
   },
-  activeIconBg: {
-    backgroundColor: Colors.dark.primary,
-    borderRadius: 20,
-    padding: 6,
+  headerTitle: {
+    color: Colors.dark.text,
+    fontSize: 18,
+    fontWeight: 'bold',
     marginLeft: 8,
+  },
+  mainContainer: {
+    flex: 1,
   },
   readerContainer: {
     flex: 1,
   },
-  bottomBar: {
-    backgroundColor: Colors.dark.surface,
-    borderTopWidth: 1,
-    borderTopColor: Colors.dark.border,
-    paddingBottom: Platform.OS === 'ios' ? 24 : 16,
-    paddingTop: 12,
-  },
-  progressContainer: {
+  tocContainer: {
+    flex: 1,
     paddingHorizontal: 16,
-    marginBottom: 12,
   },
-  progressText: {
+  tocLoadingText: {
     color: Colors.dark.textMuted,
-    fontSize: 14,
+    marginTop: 20,
+    textAlign: 'center',
   },
-  controlsContainer: {
+  tocItem: {
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.border,
+  },
+  tocItemText: {
+    color: Colors.dark.text,
+    fontSize: 16,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: Colors.dark.surface,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    maxHeight: '80%',
+  },
+  modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 24,
+    marginBottom: 20,
   },
-  playbackControls: {
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: Colors.dark.text,
+  },
+  modalBody: {
+    marginBottom: 20,
+  },
+  sectionTitle: {
+    fontSize: 14,
+    color: Colors.dark.primary,
+    fontWeight: '600',
+    marginBottom: 16,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  settingRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.border,
+  },
+  settingLabel: {
+    color: Colors.dark.text,
+    fontSize: 16,
+  },
+  buttonGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 24,
+    backgroundColor: Colors.dark.background,
+    borderRadius: 8,
+    padding: 4,
   },
-  controlButton: {
-    padding: 8,
+  settingOption: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 6,
   },
-  playButton: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+  activeOption: {
     backgroundColor: Colors.dark.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+  },
+  optionText: {
+    color: Colors.dark.text,
+  },
+  activeOptionText: {
+    color: '#fff',
+    fontWeight: 'bold',
   },
 });

@@ -69,8 +69,24 @@ const Reader = forwardRef<ReaderRef, ReaderProps>(({ src, onToc }, ref) => {
               const doc = contents.document;
               const body = doc.body;
               const footer = doc.createElement('div');
-              footer.innerHTML = '<div style="display:flex; justify-content:space-between; padding: 40px 20px; margin-top: 40px; border-top: 1px solid #333;"><button onclick="window.ReactNativeWebView.postMessage(JSON.stringify({type: \\'prev\\'}))" style="padding:12px 24px; background:#9333EA; color:#fff; border:none; border-radius:8px; font-size:16px;">&larr; Prev Chapter</button><button onclick="window.ReactNativeWebView.postMessage(JSON.stringify({type: \\'next\\'}))" style="padding:12px 24px; background:#9333EA; color:#fff; border:none; border-radius:8px; font-size:16px;">Next Chapter &rarr;</button></div>';
+              footer.innerHTML = '<div style="display:flex; justify-content:space-between; padding: 40px 20px; margin-top: 40px; border-top: 1px solid #333;"><button id="prev-btn" style="padding:12px 24px; background:#9333EA; color:#fff; border:none; border-radius:8px; font-size:16px;">&larr; Prev Chapter</button><button id="next-btn" style="padding:12px 24px; background:#9333EA; color:#fff; border:none; border-radius:8px; font-size:16px;">Next Chapter &rarr;</button></div>';
               body.appendChild(footer);
+              
+              doc.getElementById('prev-btn').addEventListener('click', function() {
+                if (window.parent && window.parent.ReactNativeWebView) {
+                  window.parent.ReactNativeWebView.postMessage(JSON.stringify({type: 'prev'}));
+                } else if (window.ReactNativeWebView) {
+                  window.ReactNativeWebView.postMessage(JSON.stringify({type: 'prev'}));
+                }
+              });
+
+              doc.getElementById('next-btn').addEventListener('click', function() {
+                if (window.parent && window.parent.ReactNativeWebView) {
+                  window.parent.ReactNativeWebView.postMessage(JSON.stringify({type: 'next'}));
+                } else if (window.ReactNativeWebView) {
+                  window.ReactNativeWebView.postMessage(JSON.stringify({type: 'next'}));
+                }
+              });
             });
 
             rendition.display();

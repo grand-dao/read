@@ -54,8 +54,24 @@ const Reader = forwardRef<ReaderRef, ReaderProps & { onToc?: (toc: any) => void 
       const doc = contents.document;
       const body = doc.body;
       const footer = doc.createElement('div');
-      footer.innerHTML = '<div style="display:flex; justify-content:space-between; padding: 40px 20px; margin-top: 40px; border-top: 1px solid #333;"><button onclick="window.parent.goWebPrev()" style="padding:12px 24px; background:#9333EA; color:#fff; border:none; border-radius:8px; font-size:16px; cursor:pointer;">&larr; Prev Chapter</button><button onclick="window.parent.goWebNext()" style="padding:12px 24px; background:#9333EA; color:#fff; border:none; border-radius:8px; font-size:16px; cursor:pointer;">Next Chapter &rarr;</button></div>';
+      footer.innerHTML = '<div style="display:flex; justify-content:space-between; padding: 40px 20px; margin-top: 40px; border-top: 1px solid #333;"><button id="prev-btn" style="padding:12px 24px; background:#9333EA; color:#fff; border:none; border-radius:8px; font-size:16px; cursor:pointer;">&larr; Prev Chapter</button><button id="next-btn" style="padding:12px 24px; background:#9333EA; color:#fff; border:none; border-radius:8px; font-size:16px; cursor:pointer;">Next Chapter &rarr;</button></div>';
       body.appendChild(footer);
+
+      doc.getElementById('prev-btn')?.addEventListener('click', function() {
+        if (window.parent && (window.parent as any).goWebPrev) {
+          (window.parent as any).goWebPrev();
+        } else if ((window as any).goWebPrev) {
+          (window as any).goWebPrev();
+        }
+      });
+
+      doc.getElementById('next-btn')?.addEventListener('click', function() {
+        if (window.parent && (window.parent as any).goWebNext) {
+          (window.parent as any).goWebNext();
+        } else if ((window as any).goWebNext) {
+          (window as any).goWebNext();
+        }
+      });
     });
 
     setRendition(newRendition);
